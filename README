@@ -1,0 +1,5 @@
+Starts with wsl or linux
+
+sudo apt install build-essential libomp-dev
+g++-11 -fopenmp anyname.c -o anyname.out
+OMP_NUM_THREADS=4 ./anyname.out
