@@ -1,5 +1,8 @@
 Starts with wsl or linux
-
+# Install
 sudo apt install build-essential libomp-dev
-g++-11 -fopenmp anyname.c -o anyname.out
-OMP_NUM_THREADS=4 ./anyname.out
+sudo apt install openmpi-bin openmpi-doc libopenmpi-dev
+# Compile
+mpicc -o main main.c
+# Run
+mpirun -np 8 ./main
