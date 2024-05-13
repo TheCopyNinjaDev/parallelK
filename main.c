@@ -106,33 +106,3 @@ int main(int argc, char *argv[]) {
 }
 
 
-
-
-
-// int main(int argc, char **argv) {
-//   int process_rank, size_of_cluster;
-
-//   MPI_Init(&argc, &argv);
-//   MPI_Comm_size(MPI_COMM_WORLD, &size_of_cluster);
-//   MPI_Comm_rank(MPI_COMM_WORLD, &process_rank);
-
-//   double start = MPI_Wtime();
-
-//   int array[] = {9, 3, 4, 5, 1, 333, 2, 7, 8, 0}; // Example array
-//   int k = 5; // Example k-th order statistic to find
-//   int n = sizeof(array) / sizeof(array[0]);
-
-//   //   printf("The %d-th smallest element is %d\n", k,
-//   //          order_statistics(array, n - 1, k));
-  
-
-//   double end = MPI_Wtime();
-
-//   MPI_Finalize();
-  
-//   if (process_rank == 0) {
-//     printf("\nTime measured: %f s", end - start);
-//   }
-
-//   return 0;
-// }
