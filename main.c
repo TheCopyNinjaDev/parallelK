@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
     double start = MPI_Wtime();
 
     int n = 100000000; // Total size of the array
-    int k = 4;  // The order statistic we're looking for
+    int k = 32935543;  // The order statistic we're looking for
     int *a = NULL;
     int local_n = n / size; // Size of the sub-array for each process
 
@@ -73,7 +73,7 @@ int main(int argc, char *argv[]) {
 
     // Each process fills its sub-array with random data
     for (int i = 0; i < local_n; i++) {
-        local_a[i] = i; // Random numbers between 0 and 99
+        local_a[i] = rand() % 100; // Random numbers between 0 and 99
     }
 
     // // Initialize the sub-array with the given values
