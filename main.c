@@ -61,7 +61,67 @@ int main(int argc, char *argv[]) {
     double start = MPI_Wtime();
 
     int n = 100000000; // Total size of the array
-    int k = 32935543;  // The order statistic we're looking for
+    int k = 32935543#include <stdio.h>
+#include <stdlib.h>
+#include <mpi.h>
+#include <math.h>
+#include <complex.h>
+
+// Function to check if a point is in the Mandelbrot set
+int is_in_mandelbrot(double complex c) {
+    double complex z = 0;
+    for (int n = 0; n < 1000; n++) {
+        z = z*z + c;
+        if (cabs(z) > 2.0) return 0;
+    }
+    return 1;
+}
+
+// Main function
+int main(int argc, char *argv[]) {
+    int rank, size;
+    MPI_Init(&argc, &argv);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    // Monte Carlo parameters
+    int num_points = 1000000; // Number of random points
+    double area = 0.0;
+    double moment_of_inertia = 0.0;
+
+    // Seed random number generator
+    srand(rank);
+
+    // Calculate area and moment of inertia
+    for (int i = 0; i < num_points; i++) {
+        double real = (double)rand() / RAND_MAX * 4 - 2; // Real part between -2 and 2
+        double imag = (double)rand() / RAND_MAX * 4 - 2; // Imaginary part between -2 and 2
+        double complex c = real + imag * I;
+
+        if (is_in_mandelbrot(c)) {
+            area += 1.0;
+            moment_of_inertia += pow(cabs(c), 2);
+        }
+    }
+
+    // Reduce results from all processes
+    double total_area;
+    double total_moment_of_inertia;
+    MPI_Reduce(&area, &total_area, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&moment_of_inertia, &total_moment_of_inertia, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+
+    // Master process prints the results
+    if (rank == 0) {
+        total_area *= 16.0 / (size * num_points); // Adjust for the total area of the plane
+        total_moment_of_inertia *= 16.0 / (size * num_points); // Adjust for the total number of points
+        printf("Estimated Area: %f\n", total_area);
+        printf("Estimated Moment of Inertia: %f\n", total_moment_of_inertia);
+    }
+
+    MPI_Finalize();
+    return 0;
+}
+;  // The order statistic we're looking for
     int *a = NULL;
     int local_n = n / size; // Size of the sub-array for each process
 
