@@ -83,25 +83,54 @@ int main(int argc, char **argv) {
     Point *points = NULL;
 
     if (rank == 0) {
-        srand(time(NULL));
-        printf("Enter number of points: ");
-        scanf("%d", &n);
 
-        // Allocate memory for n points
+        // RANDOM RANDOM RANDOM RANDOM RANDOM RANDOM RANDOM RANDOM RANDOM RANDOM RANDOM RANDOM RANDOM RANDOM RANDOM RANDOM
+
+        // printf("Enter number of points: ");
+        // scanf("%d", &n);
+        // srand(time(NULL));
+        // // Allocate memory for n points
+        // points = (Point *)malloc(n * sizeof(Point));
+        // if (points == NULL) {
+        //     printf("Memory allocation failed.\n");
+        //     return 1; // Exit program with error
+        // }
+
+        // // printf("Random points (x y z):\n");
+        // for (int i = 0; i < n; i++) {
+        //     points[i].x = (double)rand() / RAND_MAX * 10.0; // Random x coordinate between 0 and 10
+        //     points[i].y = (double)rand() / RAND_MAX * 10.0; // Random y coordinate between 0 and 10
+        //     points[i].z = (double)rand() / RAND_MAX * 10.0; // Random z coordinate between 0 and 10
+
+        //     // printf("%.2lf %.2lf %.2lf\n", points[i].x, points[i].y, points[i].z);
+        // }
+
+        //FILE FILE FILE FILE FILE FILE FILE FILE FILE FILE FILE FILE FILE FILE FILE FILE FILE FILE FILE FILE FILE FILE FILE
+        FILE *file = fopen("points.txt", "r");
+        if(file == NULL)
+        {
+            printf("Error opening file. \n");
+            return 1;
+        }
+
+        // Read number of points from the file
+        fscanf(file, "%d", &n);
+        
         points = (Point *)malloc(n * sizeof(Point));
-        if (points == NULL) {
+        if(points == NULL)
+        {
             printf("Memory allocation failed.\n");
-            return 1; // Exit program with error
+            fclose(file);
+            return 1;
         }
 
-        // printf("Random points (x y z):\n");
-        for (int i = 0; i < n; i++) {
-            points[i].x = (double)rand() / RAND_MAX * 10.0; // Random x coordinate between 0 and 10
-            points[i].y = (double)rand() / RAND_MAX * 10.0; // Random y coordinate between 0 and 10
-            points[i].z = (double)rand() / RAND_MAX * 10.0; // Random z coordinate between 0 and 10
-
-            // printf("%.2lf %.2lf %.2lf\n", points[i].x, points[i].y, points[i].z);
+        for(int i = 0; i < n; i++)
+        {
+            fscanf(file, "%lf %lf %lf", &points[i].x, &points[i].y, &points[i].z);
         }
+
+        fclose(file);
+
     }
 
     MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
