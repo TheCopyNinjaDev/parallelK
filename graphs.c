@@ -1,158 +1,135 @@
+#include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdbool.h>
-#include <mpi.h>
+#include <math.h>
+#include <time.h> 
+#include <float.h>
 
-#define MAX_V 20  // Maximum number of vertices
+typedef struct {
+    double x, y, z;
+} Point;
 
-// Adjacency matrix representation of graphs
-bool adj1[MAX_V][MAX_V];
-bool adj2[MAX_V][MAX_V];
-int n1, n2;  // Number of vertices in graph 1 and graph 2
+typedef struct {
+    Point c;
+    double r;
+} Sphere;
 
-// Arrays to store the mappings
-int map[MAX_V];    // map[i] = j means vertex i in graph1 is mapped to vertex j in graph2
-bool used[MAX_V];  // To keep track of used vertices in graph2
-
-// Check if vertex `v1` can be mapped to vertex `v2`
-bool isMappable(int v1, int v2) {
-    if (adj1[v1][v1] != adj2[v2][v2]) {
-        return false;  // Vertices must have the same degree
-    }
-
-    for (int i = 0; i < n1; i++) {
-        if (adj1[v1][i] != adj2[v2][i]) {
-            return false;  // Adjacent vertices must have matching degrees
-        }
-    }
-
-    return true;
+double distance(Point a, Point b) {
+    return sqrt(pow(a.x - b.x, 2) + pow(a.y - b.y, 2) + pow(a.z - b.z, 2));
 }
 
-// Ullman's algorithm to check if graphs are isomorphic (parallelized with MPI)
-bool isIsomorphicUtil(int depth) {
-    if (depth == n1) {
-        return true;  // All vertices of graph1 are mapped
-    }
-
-    int my_rank, num_procs;
-    MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
-
-    for (int v2 = my_rank; v2 < n2; v2 += num_procs) {
-        if (!used[v2] && isMappable(depth, v2)) {
-            map[depth] = v2;
-            used[v2] = true;
-
-            if (isIsomorphicUtil(depth + 1)) {
-                return true;
-            }
-
-            used[v2] = false;  // Backtrack
-        }
-    }
-
-    return false;
+Point centroid(Point a, Point b, Point c) {
+    Point p;
+    p.x = (a.x + b.x + c.x) / 3.0;
+    p.y = (a.y + b.y + c.y) / 3.0;
+    p.z = (a.z + b.z + c.z) / 3.0;
+    return p;
 }
 
-// Wrapper function to check isomorphism using MPI
-bool isIsomorphicMPI() {
-    if (n1 != n2) {
-        return false;  // Graphs must have the same number of vertices
-    }
-
-    for (int i = 0; i < n1; i++) {
-        map[i] = -1;  // Initialize mapping as unmapped
-    }
-
-    return isIsomorphicUtil(0);
+Sphere makeSphere2(Point a, Point b) {
+    Sphere s;
+    s.c.x = (a.x + b.x) / 2.0;
+    s.c.y = (a.y + b.y) / 2.0;
+    s.c.z = (a.z + b.z) / 2.0;
+    s.r = distance(a, b) / 2.0;
+    return s;
 }
 
-// Example usage
-int main(int argc, char *argv[]) {
-    int my_rank;
+Sphere makeSphere3(Point a, Point b, Point c) {
+    Point cen = centroid(a, b, c);
+    Sphere s;
+    s.c = cen;
+    s.r = distance(cen, a);
+    return s;
+}
 
+Sphere welzl(Point *P, Point *R, int n, int r) {
+    if (n == 0 || r == 3) {
+        if (r == 0) return (Sphere){{0, 0, 0}, 0};
+        if (r == 1) return (Sphere){R[0], 0};
+        if (r == 2) return makeSphere2(R[0], R[1]);
+        if (r == 3) return makeSphere3(R[0], R[1], R[2]);
+    }
+
+    int idx = rand() % n;
+    Point p = P[idx];
+
+    P[idx] = P[n - 1];
+
+    Sphere D = welzl(P, R, n - 1, r);
+
+    if (distance(D.c, p) <= D.r) {
+        P[n - 1] = p;
+        return D;
+    }
+
+    R[r] = p;
+    return welzl(P, R, n - 1, r + 1);
+}
+
+Sphere findMinBoundingSphere(Point *points, int n) {
+    Point R[3];
+    return welzl(points, R, n, 0);
+}
+
+int main(int argc, char **argv) {
     MPI_Init(&argc, &argv);
-    MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
+
+    int world_size, rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    int n;
+    Point *points = NULL;
+
+    if (rank == 0) {
+        srand(time(NULL));
+        printf("Enter number of points: ");
+        scanf("%d", &n);
+
+        // Allocate memory for n points
+        points = (Point *)malloc(n * sizeof(Point));
+        if (points == NULL) {
+            printf("Memory allocation failed.\n");
+            return 1; // Exit program with error
+        }
+
+        // printf("Random points (x y z):\n");
+        for (int i = 0; i < n; i++) {
+            points[i].x = (double)rand() / RAND_MAX * 10.0; // Random x coordinate between 0 and 10
+            points[i].y = (double)rand() / RAND_MAX * 10.0; // Random y coordinate between 0 and 10
+            points[i].z = (double)rand() / RAND_MAX * 10.0; // Random z coordinate between 0 and 10
+
+            // printf("%.2lf %.2lf %.2lf\n", points[i].x, points[i].y, points[i].z);
+        }
+    }
+
+    MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+    int local_n = n / world_size;
+    Point *local_points = (Point *)malloc(local_n * sizeof(Point));
+    MPI_Scatter(points, local_n * sizeof(Point), MPI_BYTE, local_points, local_n * sizeof(Point), MPI_BYTE, 0, MPI_COMM_WORLD);
 
     double start = MPI_Wtime();
 
-    // Initialize adjacency matrices for two graphs
-    n1 = 4;
-    n2 = 4;
-
-    // Example graphs (adjacency matrices)
-    bool graph1[MAX_V][MAX_V] = {
-        {0, 1, 0, 1},
-        {1, 0, 1, 0},
-        {0, 1, 0, 1},
-        {0, 1, 0, 1},
-        {1, 0, 1, 0},
-        {0, 1, 0, 1},
-        {0, 1, 0, 1},
-        {1, 0, 1, 0},
-        {0, 1, 0, 1},
-        {0, 1, 0, 1},
-        {1, 0, 1, 0},
-        {0, 1, 0, 1},
-        {0, 1, 0, 1},
-        {1, 0, 1, 0},
-        {0, 1, 0, 1},
-        {0, 1, 0, 1},
-        {1, 0, 1, 0},
-        {0, 1, 0, 1},
-        {0, 1, 0, 1},
-        {1, 0, 1, 0},
-    };
-
-    bool graph2[MAX_V][MAX_V] = {
-        {0, 1, 0, 1},
-        {1, 0, 1, 0},
-        {0, 1, 0, 1},
-        {0, 1, 0, 1},
-        {1, 0, 1, 0},
-        {0, 1, 0, 1},
-        {0, 1, 0, 1},
-        {1, 0, 1, 0},
-        {0, 1, 0, 1},
-        {0, 1, 0, 1},
-        {1, 0, 1, 0},
-        {0, 1, 0, 1},
-        {0, 1, 0, 1},
-        {1, 0, 1, 0},
-        {0, 1, 0, 1},
-        {0, 1, 0, 1},
-        {1, 0, 1, 0},
-        {0, 1, 0, 1},
-        {0, 1, 0, 1},
-        {1, 0, 1, 0},
-    };
-
-    // Copy graph1 and graph2 to adjacency matrices
-    for (int i = 0; i < n1; i++) {
-        for (int j = 0; j < n1; j++) {
-            adj1[i][j] = graph1[i][j];
-            adj2[i][j] = graph2[i][j];
-        }
-    }
-
-    bool isomorphic = isIsomorphicMPI();
-
-    if (my_rank == 0) {
-        if (isomorphic) {
-            printf("Graphs are isomorphic!\n");
-        } else {
-            printf("Graphs are not isomorphic.\n");
-        }
-    }
+    Sphere local_sphere = findMinBoundingSphere(local_points, local_n);
 
     double end = MPI_Wtime();
 
+    Sphere global_sphere;
+    MPI_Allreduce(&local_sphere, &global_sphere, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+
+    if (rank == 0) {
+        printf("Center: (%lf, %lf, %lf)\n", global_sphere.c.x, global_sphere.c.y, global_sphere.c.z);
+        printf("Radius: %lf\n", global_sphere.r);
+        free(points);
+    }
+
+    free(local_points);
+
     MPI_Finalize();
-
-
-    if (my_rank == 0) {
-        printf("\nTime measured: %f", end - start);
+    if (rank == 0) {
+        printf("\nTime measured: %f\n", end - start);
     }
     return 0;
 }
